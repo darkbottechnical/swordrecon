@@ -1,0 +1,34 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>LAN Watcher</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+</head>
+
+<body>
+    <h1>Devices on Your Network</h1>
+    <table>
+        <tr>
+            <th>Hostname</th>
+            <th>IP</th>
+            <th>MAC Address</th>
+            <th>Last Seen</th>
+        </tr>
+        {% for device in devices %}
+        <tr>
+            <td>{{ device.name }}</td>
+            <td>{{ device.ip }}</td>
+            <td>{{ device.mac }}</td>
+            <td>{{ device.last_seen }}</td>
+        </tr>
+        {% endfor %}
+    </table>
+    <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+    <script src="{{ url_for('static', filename='script.js') }}"></script>
+
+</body>
+
+</html>
