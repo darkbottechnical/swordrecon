@@ -6,6 +6,8 @@ import ipaddress
 import threading
 import socket
 import time
+import os
+from scapy.all import Ether, ARP, srp, sniff, sendp
 from random import randint
 
 main = Blueprint('main', __name__)
@@ -24,6 +26,29 @@ def ping_ip(ip):
     except Exception as e:
         print(f"Error pinging {ip}: {e}")
         return False
+    
+
+def arp_check(ip):
+    """Send an ARP request to the specified IP and check for a response."""
+    try:
+        # Construct the ARP request packet
+        arp_request = ARP(pdst=str(ip))
+        ether_frame = Ether(dst="ff:ff:ff:ff:ff:ff")
+        packet = ether_frame / arp_request
+
+        # Send the packet and wait for a response
+        answered, unanswered = srp(packet, timeout=3, verbose=False)
+
+        # Process the responses
+        for sent, received in answered:
+            if received and received.op == 2:  # ARP reply
+                return received.hwsrc  # Return the MAC address
+
+        return False  # No response
+    except Exception as e:
+        print(f"Error in ARP check for {ip}: {e}")
+        return False
+    
 
 def check_ports(ip, ports):
     for port in ports:
@@ -45,25 +70,34 @@ def scan_ip(ip, ports):
     """Scan a single IP address."""
     global devices
     while True:
-        is_online = ping_ip(ip)
-        if is_online:
-            print(f"{ip} is online (ping successful).")
-            new_device = {"ip": str(ip), "mac": "will implement later"}
+        a = arp_check(ip)
+        if a:
+            print(f"{ip} is online (arp successful).")
+            new_device = {"ip": str(ip), "mac": a}
             if new_device not in devices:
                 devices.append(new_device)
-            time.sleep(randint(5, 10))
+            time.sleep(randint(7, 10))
         else:
-            if check_ports(ip, ports):
-                new_device = {"ip": str(ip), "mac": "will implement later"}
+            is_online = ping_ip(ip)
+            if is_online:
+                print(f"{ip} is online (ping successful)")
+                new_device = {"ip": str(ip), "mac": None}
                 if new_device not in devices:
                     devices.append(new_device)
-                time.sleep(randint(5, 10))
+                time.sleep(randint(7, 10))
             else:
-                for device in devices:
-                    if device["ip"] == ip:
-                        print(f"Removing offline endpoint {ip}")
-                        devices.remove(device)
-                time.sleep(randint(5, 8))
+
+                if check_ports(ip, ports):
+                    new_device = {"ip": str(ip), "mac": None}
+                    if new_device not in devices:
+                        devices.append(new_device)
+                    time.sleep(randint(7, 10))
+                else:
+                    for device in devices:
+                        if device["ip"] == ip:
+                            print(f"Removing offline endpoint {ip}")
+                            devices.remove(device)
+                        time.sleep(randint(7, 8))
         
 
 def scan_subnet(subnet_str, ports):
@@ -71,11 +105,11 @@ def scan_subnet(subnet_str, ports):
     global devices
 
     subnet = ipaddress.IPv4Network(subnet_str, strict=False)
-
+    threads = []
     for ip in subnet.hosts():
-        print(f"Starting tracking thread for {ip}...")
         t = threading.Thread(target=scan_ip, args=(ip, ports))
         t.start()
+        threads.append(t)
 
 
        
@@ -88,7 +122,7 @@ def devices_json():
     return jsonify({'devices': devices})
 
 
-scan_thread = threading.Thread(target=scan_subnet, args=("192.168.1.0/24", [80, 443, 135, 139, 445]))
+scan_thread = threading.Thread(target=scan_subnet, args=("192.168.1.0/24", [21, 22, 23, 25, 53 ,80, 443, 135, 139, 445, 5000, 8080]))
 scan_thread.start()
 
 
