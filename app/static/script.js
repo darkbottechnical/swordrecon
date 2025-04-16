@@ -2,9 +2,9 @@ function updateDevices() {
     $.get("/devices", function (data) {
         const tableBody = $("table tbody");
         tableBody.empty();
-        tableBody.append(`<tr><th>IP Address</th><th>MAC Address</th></tr>`);
+        tableBody.append(`<tr><th>IP Address</th><th>MAC Address</th><th>Last Seen</th></tr>`);
         data.devices.forEach(function (device) {
-            tableBody.append(`<tr><td>${device.ip}</td><td>${device.mac}</td></tr>`);
+            tableBody.append(`<tr><td>${device.ip}</td><td>${device.mac}</td><td>${device.last_seen}</td></tr>`);
         });
     });
 }

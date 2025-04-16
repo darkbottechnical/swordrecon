@@ -83,30 +83,38 @@ def scan_ip(ip, ports):
         a = arp_check(ip)
         if a:
             print(f"{ip} is online (ARP successful).")
+            last_seen = time.time()
             with devices_lock:
                 # Check if the IP already exists in the devices list
                 existing_device = next((device for device in devices if device["ip"] == str(ip)), None)
                 if existing_device:
                     existing_device["mac"] = a  # Update MAC address if it exists
+                    existing_device["last_seen"] = last_seen
                 else:
-                    devices.append({"ip": str(ip), "mac": a})
+                    devices.append({"ip": str(ip), "mac": a, "last_seen": last_seen})
             time.sleep(randint(7, 10))
         else:
             is_online = ping_ip(ip)
             if is_online:
                 print(f"{ip} is online (ping successful).")
+                last_seen = time.time()
                 with devices_lock:
                     existing_device = next((device for device in devices if device["ip"] == str(ip)), None)
-                    if not existing_device:
-                        devices.append({"ip": str(ip), "mac": None})
+                    if existing_device:
+                        existing_device["last_seen"] = last_seen
+                    else:
+                        devices.append({"ip": str(ip), "mac": None, "last_seen": last_seen})
                 time.sleep(randint(7, 10))
             else:
                 if check_ports(ip, ports):
                     print(f"{ip} is online (port responding).")
+                    last_seen = time.time()
                     with devices_lock:
                         existing_device = next((device for device in devices if device["ip"] == str(ip)), None)
-                        if not existing_device:
-                            devices.append({"ip": str(ip), "mac": None})
+                        if existing_device:
+                            existing_device["last_seen"] = last_seen
+                        else:
+                            devices.append({"ip": str(ip), "mac": None, "last_seen": last_seen})
                     time.sleep(randint(7, 10))
                 else:
                     # Remove offline endpoint
