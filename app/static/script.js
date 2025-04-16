@@ -8,4 +8,5 @@ function updateDevices() {
         });
     });
 }
+updateDevices();
 setInterval(updateDevices, 5000);

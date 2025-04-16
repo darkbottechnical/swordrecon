@@ -1,3 +1,4 @@
+# import the needed modules
 from flask import Blueprint, render_template, jsonify
 import threading
 import platform
@@ -6,28 +7,37 @@ import ipaddress
 import threading
 import socket
 import time
-import os
 from scapy.all import Ether, ARP, srp, sniff, sendp
 from random import randint
+from threading import Lock
 
+# initialize the Flask blueprint
 main = Blueprint('main', __name__)
 
+# Initialize a global list to store devices and a lock for thread safety	
 devices = []
+devices_lock = Lock()
 
+# function to ping and ip address and check if it is online
 def ping_ip(ip):
     """Ping an IP address and return True if online, False otherwise."""
-    param = '-n' if platform.system().lower() == 'windows' else '-c'
+    param = '-n' if platform.system().lower() == 'windows' else '-c' # Windows uses -n, Linux uses -c
+    # Construct the ping command
     command = ['ping', param, '1', str(ip)]
+    
     try:
+        # Execute the ping command and capture the output
         result = subprocess.run(command, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)
+        # Check the output for keywords indicating success or failure
         if any(keyword in result.stdout.lower() for keyword in ["unreachable", "timed out", "failure"]):
             return False
         return True
     except Exception as e:
+        # Handle any exceptions that occur during the ping process
         print(f"Error pinging {ip}: {e}")
         return False
     
-
+# function to check if an ip address is online using ARP
 def arp_check(ip):
     """Send an ARP request to the specified IP and check for a response."""
     try:
@@ -46,10 +56,11 @@ def arp_check(ip):
 
         return False  # No response
     except Exception as e:
+        # handle exceptions
         print(f"Error in ARP check for {ip}: {e}")
         return False
     
-
+# function to check if a device is online by connecting to common ports
 def check_ports(ip, ports):
     for port in ports:
         if check_port(ip, port):
@@ -65,39 +76,43 @@ def check_port(ip, port):
     except (socket.timeout, ConnectionRefusedError, OSError):
         return False
         
-
+# function to scan a specific IP address and check its status
 def scan_ip(ip, ports):
-    """Scan a single IP address."""
     global devices
     while True:
         a = arp_check(ip)
         if a:
-            print(f"{ip} is online (arp successful).")
-            new_device = {"ip": str(ip), "mac": a}
-            if new_device not in devices:
-                devices.append(new_device)
+            print(f"{ip} is online (ARP successful).")
+            with devices_lock:
+                # Check if the IP already exists in the devices list
+                existing_device = next((device for device in devices if device["ip"] == str(ip)), None)
+                if existing_device:
+                    existing_device["mac"] = a  # Update MAC address if it exists
+                else:
+                    devices.append({"ip": str(ip), "mac": a})
             time.sleep(randint(7, 10))
         else:
             is_online = ping_ip(ip)
             if is_online:
-                print(f"{ip} is online (ping successful)")
-                new_device = {"ip": str(ip), "mac": None}
-                if new_device not in devices:
-                    devices.append(new_device)
+                print(f"{ip} is online (ping successful).")
+                with devices_lock:
+                    existing_device = next((device for device in devices if device["ip"] == str(ip)), None)
+                    if not existing_device:
+                        devices.append({"ip": str(ip), "mac": None})
                 time.sleep(randint(7, 10))
             else:
-
                 if check_ports(ip, ports):
-                    new_device = {"ip": str(ip), "mac": None}
-                    if new_device not in devices:
-                        devices.append(new_device)
+                    print(f"{ip} is online (port responding).")
+                    with devices_lock:
+                        existing_device = next((device for device in devices if device["ip"] == str(ip)), None)
+                        if not existing_device:
+                            devices.append({"ip": str(ip), "mac": None})
                     time.sleep(randint(7, 10))
                 else:
-                    for device in devices:
-                        if device["ip"] == ip:
-                            print(f"Removing offline endpoint {ip}")
-                            devices.remove(device)
-                        time.sleep(randint(7, 8))
+                    # Remove offline endpoint
+                    with devices_lock:
+                        devices = [device for device in devices if device["ip"] != str(ip)]
+                    time.sleep(randint(7, 8))
         
 
 def scan_subnet(subnet_str, ports):
