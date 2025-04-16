@@ -10,6 +10,7 @@ import time
 from scapy.all import Ether, ARP, srp, sniff, sendp
 from random import randint
 from threading import Lock
+from datetime import datetime as dt
 
 # initialize the Flask blueprint
 main = Blueprint('main', __name__)
@@ -83,7 +84,7 @@ def scan_ip(ip, ports):
         a = arp_check(ip)
         if a:
             print(f"{ip} is online (ARP successful).")
-            last_seen = time.time()
+            last_seen = str(dt.now().time())
             with devices_lock:
                 # Check if the IP already exists in the devices list
                 existing_device = next((device for device in devices if device["ip"] == str(ip)), None)
@@ -92,35 +93,35 @@ def scan_ip(ip, ports):
                     existing_device["last_seen"] = last_seen
                 else:
                     devices.append({"ip": str(ip), "mac": a, "last_seen": last_seen})
-            time.sleep(randint(7, 10))
+            time.sleep(randint(8, 14))
         else:
             is_online = ping_ip(ip)
             if is_online:
                 print(f"{ip} is online (ping successful).")
-                last_seen = time.time()
+                last_seen = str(dt.now().time())
                 with devices_lock:
                     existing_device = next((device for device in devices if device["ip"] == str(ip)), None)
                     if existing_device:
                         existing_device["last_seen"] = last_seen
                     else:
                         devices.append({"ip": str(ip), "mac": None, "last_seen": last_seen})
-                time.sleep(randint(7, 10))
+                time.sleep(randint(7, 15))
             else:
                 if check_ports(ip, ports):
                     print(f"{ip} is online (port responding).")
-                    last_seen = time.time()
+                    last_seen = str(dt.now().time())
                     with devices_lock:
                         existing_device = next((device for device in devices if device["ip"] == str(ip)), None)
                         if existing_device:
                             existing_device["last_seen"] = last_seen
                         else:
                             devices.append({"ip": str(ip), "mac": None, "last_seen": last_seen})
-                    time.sleep(randint(7, 10))
+                    time.sleep(randint(8, 16))
                 else:
                     # Remove offline endpoint
                     with devices_lock:
                         devices = [device for device in devices if device["ip"] != str(ip)]
-                    time.sleep(randint(7, 8))
+                    time.sleep(randint(10, 14))
         
 
 def scan_subnet(subnet_str, ports):

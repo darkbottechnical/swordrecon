@@ -1,7 +1,7 @@
 body {
     font-family: Arial, sans-serif;
-    background-color: #f0f0f0;
-    color: #333;
+    background-color: #888;
+    color: #fff;
     text-align: center;
 }
 
@@ -9,12 +9,19 @@ table {
     width: 80%;
     margin: 20px auto;
     border-collapse: collapse;
-}
-
-table, th, td {
-    border: 1px solid #ddd;
+    border-radius: 1rem;
+    background-color: #999;
+    box-shadow: #222;
 }
 
 th, td {
     padding: 8px;
+    font-family: monospace;
+    font-size: 1.2rem;
+    text-shadow: #222;
+    -webkit-text-stroke: #222 0.001rem;
+}
+
+th{
+    background-color: #777;
 }
