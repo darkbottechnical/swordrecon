@@ -1,6 +1,6 @@
 function updateDevices() {
     $.get("/devices", function (data) {
-        const tableBody = $("table tbody");
+        const tableBody = $("#devices tbody"); // Select table with id 'devices'
         tableBody.empty();
         tableBody.append(`<tr><th>IP Address</th><th>MAC Address</th><th>Last Checked</th></tr>`);
         data.devices.forEach(function (device) {
