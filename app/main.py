@@ -1,19 +1,16 @@
 # import the needed modules
-from flask import Blueprint, render_template, jsonify
 import threading
 import platform
 import subprocess
 import ipaddress
 import threading
+import eel
 import socket
 import time
 from scapy.all import Ether, ARP, srp, sniff, sendp
 from random import randint
 from threading import Lock
 from datetime import datetime as dt
-
-# initialize the Flask blueprint
-main = Blueprint('main', __name__)
 
 # Initialize a global list to store devices and a lock for thread safety	
 devices = []
@@ -134,16 +131,6 @@ def scan_subnet(subnet_str, ports):
         t = threading.Thread(target=scan_ip, args=(ip, ports))
         t.start()
         threads.append(t)
-
-
-       
-@main.route('/')
-def index():
-    return render_template('index.html')
-
-@main.route('/devices')
-def devices_json():
-    return jsonify({'devices': devices})
 
 
 scan_thread = threading.Thread(target=scan_subnet, args=("192.168.1.0/24", [21, 22, 23, 25, 53 ,80, 443, 135, 139, 445, 5000, 8080]))
