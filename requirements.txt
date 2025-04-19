@@ -1,0 +1,5 @@
+eel
+netifaces
+threading
+platform
+scapy

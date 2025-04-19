@@ -9,6 +9,7 @@ import socket
 import time
 import json
 import os
+import netifaces
 from scapy.all import Ether, ARP, srp, sniff, sendp
 from random import randint
 from threading import Lock
@@ -145,6 +146,22 @@ def scan_subnet(subnet_str, ports):
         executor.submit(scan_ip, ip, ports)
     return executor
 
+def get_local_subnet():
+    """Detect the local subnet dynamically."""
+    try:
+        # Get the default gateway interface
+        default_gateway = netifaces.gateways()['default'][netifaces.AF_INET][1]
+        # Get the IP address and subnet mask of the interface
+        iface_info = netifaces.ifaddresses(default_gateway)[netifaces.AF_INET][0]
+        ip_address = iface_info['addr']
+        netmask = iface_info['netmask']
+        # Calculate the CIDR notation for the subnet
+        subnet = ipaddress.IPv4Network(f"{ip_address}/{netmask}", strict=False)
+        return str(subnet)
+    except Exception as e:
+        print(f"Error detecting local subnet: {e}")
+        return None
+
 @eel.expose
 def getDeviceList():
     global devices
@@ -153,7 +170,12 @@ def getDeviceList():
 @eel.expose
 def start_scan():
     global executor
-    executor = scan_subnet("192.168.1.0/24", [21, 22, 23, 25, 53, 80, 443, 135, 139, 445, 5000, 8080])
+    subnet = get_local_subnet()
+    if subnet:
+        print(f"Scanning subnet: {subnet}")
+        executor = scan_subnet(subnet, [21, 22, 23, 25, 53, 80, 443, 135, 139, 445, 5000, 8080])
+    else:
+        print("Failed to detect subnet. Aborting scan.")
 
 def on_close_callback(route, websockets):
     """Callback function triggered when the main window is closed."""
