@@ -7,14 +7,28 @@ import threading
 import eel
 import socket
 import time
+import json
+import os
 from scapy.all import Ether, ARP, srp, sniff, sendp
 from random import randint
 from threading import Lock
 from datetime import datetime as dt
+from concurrent.futures import ThreadPoolExecutor
 
-# Initialize a global list to store devices and a lock for thread safety	
+# Dynamically determine the directory of the current script
+script_dir = os.path.dirname(os.path.abspath(__file__))
+
+# Construct the path to the 'web' folder relative to the script's directory
+web_folder_path = os.path.join(script_dir, 'web')
+
+# Initialize Eel with the dynamically determined path
+eel.init(web_folder_path)
+
+# Initialize a global list to store devices and a lock for thread safety
 devices = []
 devices_lock = Lock()
+stop_event = threading.Event()
+executor = None
 
 # function to ping and ip address and check if it is online
 def ping_ip(ip):
@@ -77,7 +91,7 @@ def check_port(ip, port):
 # function to scan a specific IP address and check its status
 def scan_ip(ip, ports):
     global devices
-    while True:
+    while not stop_event.is_set():
         a = arp_check(ip)
         if a:
             print(f"{ip} is online (ARP successful).")
@@ -124,16 +138,47 @@ def scan_ip(ip, ports):
 def scan_subnet(subnet_str, ports):
     """Scan all IPs in the specified subnet."""
     global devices
-
     subnet = ipaddress.IPv4Network(subnet_str, strict=False)
-    threads = []
+
+    executor = ThreadPoolExecutor(max_workers=100)
     for ip in subnet.hosts():
-        t = threading.Thread(target=scan_ip, args=(ip, ports))
-        t.start()
-        threads.append(t)
+        executor.submit(scan_ip, ip, ports)
+    return executor
 
+@eel.expose
+def getDeviceList():
+    global devices
+    return json.dumps(devices)
 
-scan_thread = threading.Thread(target=scan_subnet, args=("192.168.1.0/24", [21, 22, 23, 25, 53 ,80, 443, 135, 139, 445, 5000, 8080]))
-scan_thread.start()
+@eel.expose
+def start_scan():
+    global executor
+    executor = scan_subnet("192.168.1.0/24", [21, 22, 23, 25, 53, 80, 443, 135, 139, 445, 5000, 8080])
 
+def on_close_callback(route, websockets):
+    """Callback function triggered when the main window is closed."""
+    print("Main window closed. Terminating program...")
+    stop_event.set()  # Signal all threads to stop
+    if executor:
+        executor.shutdown(wait=True)  # Wait for all threads to finish
+    print("All threads terminated. Exiting program.")
+    os._exit(0)  # Forcefully exit the program
+
+def start_gui():
+    eel.start('index.html', size=(1000, 800), close_callback=on_close_callback)
+
+# Start the GUI in a separate thread
+gui_thread = threading.Thread(target=start_gui)
+gui_thread.start()
+
+try:
+    while True:
+        time.sleep(1)  # Sleep to reduce CPU usage
+except KeyboardInterrupt:
+    print("Keyboard Interrupt detected. Waiting for threads to terminate...")
+    stop_event.set()  # Signal all threads to stop
+    if executor:
+        executor.shutdown(wait=True)  # Wait for all threads to finish
+    gui_thread.join()  # Wait for GUI thread to finish
+    print("All threads terminated. Exiting program.")
 
